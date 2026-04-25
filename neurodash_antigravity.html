@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroDash — Antigravity Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #4285F4;
+    --red: #EA4335;
+    --yellow: #FBBC05;
+    --green: #34A853;
+    --bg: #0a0a14;
+    --card: rgba(255,255,255,0.06);
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Product Sans', 'Segoe UI', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    cursor: none;
+  }
+
+  #starfield {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  }
+
+  /* ── Search bar HUD ── */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px;
+    background: rgba(10,10,20,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  #search-bar {
+    flex: 1; max-width: 560px; margin: 0 auto;
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 24px;
+    padding: 8px 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; color: var(--text);
+    letter-spacing: 0.01em;
+  }
+  #search-bar .logo {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.5px;
+  }
+  #search-bar .logo span:nth-child(1){ color:#4285F4; }
+  #search-bar .logo span:nth-child(2){ color:#EA4335; }
+  #search-bar .logo span:nth-child(3){ color:#FBBC05; }
+  #search-bar .logo span:nth-child(4){ color:#4285F4; }
+  #search-bar .logo span:nth-child(5){ color:#34A853; }
+  #search-bar .logo span:nth-child(6){ color:#EA4335; }
+  #search-bar .query { color: var(--muted); font-size: 13px; flex:1; }
+
+  .hud-chip {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 13px; color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .hud-chip .dot { width:8px; height:8px; border-radius:50%; }
+  #score-chip .dot { background: var(--blue); }
+  #lives-chip .dot { background: var(--red); }
+  #level-chip .dot { background: var(--green); }
+  #combo-chip { color: var(--yellow); border-color: rgba(251,188,5,0.3); display:none; }
+
+  /* ── Game canvas ── */
+  #canvas {
+    position: fixed; inset: 0; z-index: 10;
+    display: block;
+  }
+
+  /* ── Floating particles bg ── */
+  .particle {
+    position: fixed; border-radius: 50%;
+    pointer-events: none; z-index: 1;
+    animation: floatUp linear infinite;
+    opacity: 0;
+  }
+  @keyframes floatUp {
+    0%   { transform: translateY(0) rotate(0deg); opacity:0; }
+    10%  { opacity: 0.4; }
+    90%  { opacity: 0.1; }
+    100% { transform: translateY(-100vh) rotate(360deg); opacity:0; }
+  }
+
+  /* ── Screens ── */
+  .screen {
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    background: rgba(10,10,20,0.92);
+    backdrop-filter: blur(16px);
+  }
+  .screen.hidden { display: none; }
+
+  .google-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 36px 48px;
+    max-width: 520px; width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+  .google-logo {
+    font-size: 42px; font-weight: 700;
+    letter-spacing: -1px; margin-bottom: 6px;
+  }
+  .google-logo span:nth-child(1){ color:#4285F4; }
+  .google-logo span:nth-child(2){ color:#EA4335; }
+  .google-logo span:nth-child(3){ color:#FBBC05; }
+  .google-logo span:nth-child(4){ color:#4285F4; }
+  .google-logo span:nth-child(5){ color:#34A853; }
+  .google-logo span:nth-child(6){ color:#EA4335; }
+  .tagline {
+    color: var(--muted); font-size: 13px; margin-bottom: 24px;
+  }
+  .game-title {
+    color: var(--text); font-size: 26px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  .btn {
+    background: var(--blue);
+    color: white; border: none; border-radius: 24px;
+    padding: 12px 32px; font-size: 15px;
+    font-family: 'Product Sans', sans-serif;
+    cursor: pointer; font-weight: 700;
+    transition: all 0.2s; letter-spacing: 0.02em;
+    margin-top: 8px;
+  }
+  .btn:hover { background: #3b77db; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(66,133,244,0.4); }
+  .btn.secondary {
+    background: transparent;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    color: var(--text);
+    margin-left: 8px;
+  }
+  .btn.secondary:hover { background: rgba(255,255,255,0.07); }
+
+  .controls-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin: 16px 0;
+    text-align: left;
+  }
+  .ctrl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .key {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; padding: 2px 8px;
+    font-size: 12px; color: var(--text); font-weight: 700;
+  }
+
+  /* ── Results panel ── */
+  .results-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin: 16px 0; text-align: left;
+  }
+  .stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .stat-value.good { color: var(--green); }
+  .stat-value.warn { color: var(--yellow); }
+  .stat-value.bad  { color: var(--red); }
+
+  /* ── Hit flash overlay ── */
+  #hit-flash {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(234,67,53,0.18);
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.1s;
+  }
+  #collect-flash {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(52,168,83,0.12);
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  /* ── Floating score popups ── */
+  .popup {
+    position: fixed; z-index: 60;
+    font-size: 18px; font-weight: 700;
+    pointer-events: none;
+    animation: popFloat 0.9s ease-out forwards;
+  }
+  @keyframes popFloat {
+    0%   { opacity:1; transform: translateY(0) scale(1); }
+    100% { opacity:0; transform: translateY(-60px) scale(0.7); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div id="search-bar">
+    <div class="logo">
+      <span>N</span><span>e</span><span>u</span><span>r</span><span>o</span><span>D</span>
+    </div>
+    <div class="query">cognitive decision game — antigravity edition</div>
+  </div>
+  <div class="hud-chip" id="score-chip"><div class="dot"></div><span id="score-val">00000</span></div>
+  <div class="hud-chip" id="lives-chip"><div class="dot"></div><span id="lives-val">♥♥♥</span></div>
+  <div class="hud-chip" id="level-chip"><div class="dot"></div><span id="level-val">LVL 1</span></div>
+  <div class="hud-chip" id="combo-chip">✦ <span id="combo-val">×2</span></div>
+</div>
+
+<div id="hit-flash"></div>
+<div id="collect-flash"></div>
+
+<!-- Start screen -->
+<div class="screen" id="start-screen">
+  <div class="google-card">
+    <div class="google-logo"><span>N</span><span>e</span><span>u</span><span>r</span><span>o</span><span>D</span></div>
+    <div class="tagline">antigravity cognitive edition</div>
+    <div class="game-title">Collect. Decide. Survive.</div>
+    <div class="subtitle">Grab the <span style="color:var(--green)">green ✚</span> items, dodge the <span style="color:var(--red)">red ✕</span> ones.<br>Your reaction time and accuracy are being tracked.</div>
+    <div class="controls-grid">
+      <div class="ctrl"><span class="key">←</span><span class="key">→</span> or <span class="key">A</span><span class="key">D</span> — move</div>
+      <div class="ctrl"><span class="key">Space</span> — boost speed</div>
+    </div>
+    <button class="btn" onclick="startGame()">Search the cosmos</button>
+  </div>
+</div>
+
+<!-- Game over screen -->
+<div class="screen hidden" id="gameover-screen">
+  <div class="google-card">
+    <div class="google-logo"><span>N</span><span>e</span><span>u</span><span>r</span><span>o</span><span>D</span></div>
+    <div class="tagline">session complete</div>
+    <div class="game-title" id="go-title">Game Over</div>
+    <div class="results-grid" id="results-grid"></div>
+    <div style="margin-top:4px">
+      <button class="btn" onclick="startGame()">Play again</button>
+      <button class="btn secondary" onclick="downloadResults()">Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Stars background ───────────────────────────────────────────────────────
+const starCanvas = document.getElementById('starfield');
+const sctx = starCanvas.getContext('2d');
+let stars = [];
+function resizeStars() {
+  starCanvas.width  = window.innerWidth;
+  starCanvas.height = window.innerHeight;
+  stars = Array.from({length:180}, () => ({
+    x: Math.random() * starCanvas.width,
+    y: Math.random() * starCanvas.height,
+    r: Math.random() * 1.4 + 0.2,
+    a: Math.random(),
+    speed: Math.random() * 0.3 + 0.05
+  }));
+}
+resizeStars();
+window.addEventListener('resize', resizeStars);
+
+function drawStars() {
+  sctx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+  stars.forEach(s => {
+    s.a += s.speed * 0.01;
+    const alpha = (Math.sin(s.a) * 0.5 + 0.5) * 0.8 + 0.1;
+    sctx.beginPath();
+    sctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    sctx.fillStyle = `rgba(200,210,255,${alpha})`;
+    sctx.fill();
+  });
+}
+
+// ── Game canvas ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Game state ─────────────────────────────────────────────────────────────
+let state = 'idle';
+let score=0, lives=3, level=1, combo=0, frame=0;
+let sessionLog = [];
+let sessionStart;
+
+// Player
+const player = {
+  x: 0, y: 0, w: 52, h: 62,
+  vx: 0, vy: 0,
+  trail: [],
+  boost: false,
+  wobble: 0
+};
+
+// Items
+let items = [];
+
+// Keys
+const keys = {};
+document.addEventListener('keydown', e => { keys[e.code] = true; });
+document.addEventListener('keyup',   e => { keys[e.code] = false; });
+
+// Floating popups
+let popups = [];
+
+// ── Item class ──────────────────────────────────────────────────────────────
+function spawnItem() {
+  const kind = Math.random() < 0.55 ? 'good' : 'bad';
+  items.push({
+    x: Math.random() * (canvas.width - 80) + 40,
+    y: -30,
+    vy: (2.5 + level * 0.35) * (0.85 + Math.random() * 0.3),
+    vx: (Math.random() - 0.5) * 1.2,
+    wobblePhase: Math.random() * Math.PI * 2,
+    wobbleAmp: 0.6 + Math.random() * 0.8,
+    kind,
+    r: 22,
+    spawnTime: performance.now(),
+    alive: true,
+    scale: 0, // grow in
+    rotation: 0,
+    rotSpeed: (Math.random()-0.5)*0.04
+  });
+}
+
+// ── Draw helpers ────────────────────────────────────────────────────────────
+function drawGlow(x, y, r, color, alpha=0.25) {
+  const g = ctx.createRadialGradient(x,y,0,x,y,r*2.2);
+  g.addColorStop(0, color.replace(')', `,${alpha})`).replace('rgb','rgba'));
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x,y,r*2.2,0,Math.PI*2); ctx.fill();
+}
+
+function drawItem(item) {
+  if (!item.alive) return;
+  ctx.save();
+  ctx.translate(item.x, item.y);
+  ctx.rotate(item.rotation);
+  ctx.scale(item.scale, item.scale);
+
+  const color = item.kind === 'good' ? '#34A853' : '#EA4335';
+  const glow  = item.kind === 'good' ? 'rgb(52,168,83)' : 'rgb(234,67,53)';
+
+  // glow
+  const g = ctx.createRadialGradient(0,0,0,0,0,item.r*2.5);
+  g.addColorStop(0, item.kind==='good' ? 'rgba(52,168,83,0.3)' : 'rgba(234,67,53,0.3)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0,0,item.r*2.5,0,Math.PI*2); ctx.fill();
+
+  // glass circle
+  ctx.beginPath(); ctx.arc(0,0,item.r,0,Math.PI*2);
+  ctx.fillStyle = item.kind==='good' ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)';
+  ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+
+  // highlight
+  ctx.beginPath(); ctx.arc(-5,-6,item.r*0.35,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill();
+
+  // symbol
+  ctx.fillStyle = color;
+  ctx.font = `bold ${item.r}px 'Product Sans', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(item.kind==='good' ? '+' : '×', 0, 1);
+
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const { x, y, w, h } = player;
+
+  // trail
+  player.trail.forEach((t, i) => {
+    const a = (i / player.trail.length) * 0.35;
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y + h*0.1, w*0.35, h*0.25, 0, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(66,133,244,${a})`;
+    ctx.fill();
+  });
+
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(frame * 0.06) * 3;
+  ctx.translate(0, bob);
+
+  // engine glow
+  const eg = ctx.createRadialGradient(0, h*0.42, 0, 0, h*0.42, 28);
+  eg.addColorStop(0, 'rgba(66,133,244,0.6)');
+  eg.addColorStop(1, 'rgba(66,133,244,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(0, h*0.42, 28, 0, Math.PI*2); ctx.fill();
+
+  // body
+  ctx.beginPath();
+  ctx.roundRect(-w*0.38, -h*0.25, w*0.76, h*0.55, 10);
+  ctx.fillStyle = '#1a73e8'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // cockpit
+  ctx.beginPath();
+  ctx.ellipse(0, -h*0.1, w*0.22, h*0.22, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(180,210,255,0.85)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth=1; ctx.stroke();
+  // cockpit reflection
+  ctx.beginPath(); ctx.ellipse(-4, -h*0.15, w*0.08, h*0.07, -0.4, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
+
+  // wings
+  ctx.beginPath();
+  ctx.moveTo(-w*0.38, h*0.05);
+  ctx.lineTo(-w*0.55, h*0.3);
+  ctx.lineTo(-w*0.25, h*0.2);
+  ctx.closePath();
+  ctx.fillStyle = '#1558d6'; ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(w*0.38, h*0.05);
+  ctx.lineTo(w*0.55, h*0.3);
+  ctx.lineTo(w*0.25, h*0.2);
+  ctx.closePath();
+  ctx.fillStyle = '#1558d6'; ctx.fill();
+
+  // engine
+  ctx.beginPath(); ctx.roundRect(-w*0.18, h*0.28, w*0.36, h*0.18, 5);
+  ctx.fillStyle = '#0d47a1'; ctx.fill();
+
+  // thruster flame (animated)
+  const flameH = (player.boost ? 28 : 16) + Math.sin(frame*0.3)*4;
+  const fg = ctx.createLinearGradient(0, h*0.46, 0, h*0.46+flameH);
+  fg.addColorStop(0, 'rgba(251,188,5,0.95)');
+  fg.addColorStop(0.5, 'rgba(234,67,53,0.8)');
+  fg.addColorStop(1, 'rgba(234,67,53,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath();
+  ctx.moveTo(-w*0.12, h*0.46);
+  ctx.lineTo(w*0.12, h*0.46);
+  ctx.lineTo(w*0.04 * Math.sin(frame*0.2+1), h*0.46+flameH);
+  ctx.closePath(); ctx.fill();
+
+  ctx.restore();
+}
+
+function addPopup(x, y, text, color) {
+  const el = document.createElement('div');
+  el.className = 'popup';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.color = color;
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+// ── Game logic ──────────────────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  score=0; lives=3; level=1; combo=0; frame=0;
+  items=[]; popups=[]; sessionLog=[];
+  sessionStart = performance.now();
+  player.x = canvas.width/2;
+  player.y = canvas.height - 100;
+  player.trail=[];
+  state='playing';
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('score-val').textContent = String(score).padStart(5,'0');
+  const hearts = '♥'.repeat(lives) + '♡'.repeat(Math.max(0,3-lives));
+  document.getElementById('lives-val').textContent = hearts;
+  document.getElementById('level-val').textContent = 'LVL '+level;
+  const cc = document.getElementById('combo-chip');
+  if (combo>1) { cc.style.display='flex'; document.getElementById('combo-val').textContent='×'+combo; }
+  else cc.style.display='none';
+}
+
+function flash(id) {
+  const el = document.getElementById(id);
+  el.style.opacity=1;
+  setTimeout(()=>el.style.opacity=0, 120);
+}
+
+function endGame() {
+  state='gameover';
+  showResults();
+}
+
+function showResults() {
+  const total = sessionLog.length;
+  const correct = sessionLog.filter(e =>
+    (e.kind==='good' && e.decision==='collected') ||
+    (e.kind==='bad'  && e.decision==='avoided')).length;
+  const acc = total ? Math.round(correct/total*100) : 0;
+  const avgRT = total ? Math.round(sessionLog.reduce((a,e)=>a+e.rt,0)/total) : 0;
+  const missCount = sessionLog.filter(e=>e.decision==='missed').length;
+  const missRate = total ? Math.round(missCount/total*100) : 0;
+  const stress = Math.min(100, Math.round(missRate*1.2 + Math.max(0,avgRT-800)*0.05));
+
+  const stressColor = stress < 35 ? 'good' : stress < 65 ? 'warn' : 'bad';
+  const accColor    = acc > 70 ? 'good' : acc > 45 ? 'warn' : 'bad';
+
+  document.getElementById('go-title').textContent =
+    score > 500 ? '🚀 Great run!' : score > 200 ? '✦ Good effort!' : 'Game Over';
+
+  document.getElementById('results-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Final score</div><div class="stat-value" style="color:var(--blue)">${score.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Level reached</div><div class="stat-value">${level}</div></div>
+    <div class="stat-card"><div class="stat-label">Accuracy</div><div class="stat-value ${accColor}">${acc}%</div></div>
+    <div class="stat-card"><div class="stat-label">Avg reaction</div><div class="stat-value">${avgRT}ms</div></div>
+    <div class="stat-card"><div class="stat-label">Miss rate</div><div class="stat-value warn">${missRate}%</div></div>
+    <div class="stat-card"><div class="stat-label">Stress score</div><div class="stat-value ${stressColor}">${stress}/100</div></div>
+  `;
+
+  document.getElementById('gameover-screen').classList.remove('hidden');
+}
+
+function downloadResults() {
+  const header = 'time_s,item_type,decision,reaction_ms\n';
+  const rows = sessionLog.map(e =>
+    `${e.t.toFixed(2)},${e.kind},${e.decision},${e.rt.toFixed(1)}`).join('\n');
+  const blob = new Blob([header+rows], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'neurodash_session.csv';
+  a.click();
+}
+
+// ── Main loop ───────────────────────────────────────────────────────────────
+let spawnTimer = 0;
+
+function loop() {
+  requestAnimationFrame(loop);
+  drawStars();
+
+  if (state !== 'playing') return;
+
+  frame++;
+  level = 1 + Math.floor(frame / 720);
+  const spawnInterval = Math.max(35, 90 - level*7);
+
+  // spawn
+  spawnTimer++;
+  if (spawnTimer >= spawnInterval) { spawnItem(); spawnTimer=0; }
+
+  // player movement
+  const spd = (keys['Space'] ? 9 : 6);
+  player.boost = !!keys['Space'];
+  if (keys['ArrowLeft']  || keys['KeyA']) player.vx = -spd;
+  else if (keys['ArrowRight'] || keys['KeyD']) player.vx =  spd;
+  else player.vx *= 0.8;
+
+  player.x = Math.max(player.w/2, Math.min(canvas.width - player.w/2, player.x + player.vx));
+  player.trail.push({x: player.x, y: player.y});
+  if (player.trail.length > 14) player.trail.shift();
+
+  // draw bg
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // subtle grid
+  ctx.strokeStyle = 'rgba(66,133,244,0.04)';
+  ctx.lineWidth = 1;
+  for(let x=0;x<canvas.width;x+=50){ ctx.beginPath();ctx.moveTo(x,60);ctx.lineTo(x,canvas.height);ctx.stroke(); }
+  for(let y=60;y<canvas.height;y+=50){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke(); }
+
+  // update & draw items
+  items.forEach(item => {
+    if (!item.alive) return;
+    item.wobblePhase += 0.04;
+    item.x  += item.vx + Math.sin(item.wobblePhase) * item.wobbleAmp;
+    item.y  += item.vy;
+    item.rotation += item.rotSpeed;
+    item.scale = Math.min(1, item.scale + 0.08);
+
+    // bounce off walls
+    if (item.x < item.r) { item.x=item.r; item.vx*=-0.7; }
+    if (item.x > canvas.width-item.r) { item.x=canvas.width-item.r; item.vx*=-0.7; }
+
+    // collision with player
+    const dx = item.x - player.x;
+    const dy = item.y - player.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+
+    if (dist < item.r + 22) {
+      const rt = performance.now() - item.spawnTime;
+      const elapsed = (performance.now()-sessionStart)/1000;
+
+      if (item.kind === 'good') {
+        combo++; score += 10*combo;
+        sessionLog.push({t:elapsed, kind:'good', decision:'collected', rt});
+        flash('collect-flash');
+        addPopup(item.x, item.y-20, `+${10*combo}`, '#34A853');
+      } else {
+        lives--; combo=0;
+        sessionLog.push({t:elapsed, kind:'bad', decision:'collected', rt});
+        flash('hit-flash');
+        addPopup(item.x, item.y-20, '-LIFE', '#EA4335');
+        // scatter particles
+        for(let i=0;i<6;i++) spawnScatterParticle(item.x, item.y);
+      }
+      item.alive = false;
+      updateHUD();
+      if(lives<=0) { setTimeout(endGame,400); state='ending'; }
+    }
+
+    // off screen
+    if (item.y > canvas.height + item.r && item.alive) {
+      const rt = performance.now() - item.spawnTime;
+      const elapsed = (performance.now()-sessionStart)/1000;
+      if (item.kind === 'good') {
+        combo=0;
+        sessionLog.push({t:elapsed, kind:'good', decision:'missed', rt});
+        updateHUD();
+      } else {
+        score+=5;
+        sessionLog.push({t:elapsed, kind:'bad', decision:'avoided', rt});
+        updateHUD();
+      }
+      item.alive = false;
+    }
+
+    drawItem(item);
+  });
+
+  items = items.filter(i=>i.alive);
+
+  // scatter particles
+  scatterParticles.forEach((p,i) => {
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.15; p.life-=0.025;
+    if(p.life>0){
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+      ctx.fillStyle=`rgba(234,67,53,${p.life*0.8})`; ctx.fill();
+    }
+  });
+  scatterParticles = scatterParticles.filter(p=>p.life>0);
+
+  drawPlayer();
+}
+
+let scatterParticles = [];
+function spawnScatterParticle(x,y) {
+  for(let i=0;i<8;i++) {
+    const angle = Math.random()*Math.PI*2;
+    const spd   = 2+Math.random()*4;
+    scatterParticles.push({
+      x,y, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd-2,
+      r:3+Math.random()*4, life:1
+    });
+  }
+}
+
+// kick off render
+loop();
+</script>
+</body>
+</html>
